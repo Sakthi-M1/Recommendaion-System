@@ -1,0 +1,328 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Dashboard</title>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+        body {
+            background-color: #000000;
+            color: #FFFFFF;
+            font-family: Arial, sans-serif;
+            margin: 0;
+            padding: 0;
+        }
+        .sidebar {
+            height: 100vh;
+            width: 250px;
+            position: fixed;
+            top: 0;
+            left: 0;
+            background-color: #1a1a1a;
+            padding-top: 20px;
+        }
+        .sidebar a {
+            padding: 15px;
+            text-decoration: none;
+            font-size: 18px;
+            color: #FFFFFF;
+            display: block;
+        }
+        .sidebar a:hover {
+            background-color: #333333;
+        }
+        .content {
+            margin-left: 260px;
+            padding: 20px;
+        }
+        .container {
+            background-color: #2a2a2a;
+            padding: 20px;
+            border-radius: 10px;
+            box-shadow: 0 0 10px rgba(100, 100, 100, 0.5);
+        }
+        h2, h3 {
+            color: #FFFFFF;
+        }
+        .form-control, .btn-primary, .btn-success {
+            background-color: #4a4a4a;
+            border-color: #4a4a4a;
+            color: #FFFFFF;
+        }
+        .form-control::placeholder {
+            color: #AAAAAA;
+        }
+        .btn-primary:hover, .btn-success:hover {
+            background-color: #666666;
+            border-color: #666666;
+        }
+        .card {
+            background-color: #333333;
+            border: 1px solid #444444;
+            color: #FFFFFF;
+        }
+        .card-img-top {
+            border-bottom: 2px solid #444444;
+        }
+        .alert-warning {
+            background-color: #666666;
+            color: #FFFFFF;
+            border: none;
+        }
+        canvas {
+            max-width: 100%;
+            margin-top: 20px;
+        }
+        .card-text {
+            color: #E0E0E0;
+            background-color: #2a2a2a;
+            padding: 10px;
+            border-radius: 5px;
+        }
+        @media (max-width: 768px) {
+            .content {
+                margin-left: 0;
+                padding: 10px;
+            }
+            .sidebar {
+                width: 100%;
+                height: auto;
+                position: relative;
+            }
+            .sidebar a {
+                display: inline-block;
+                padding: 10px;
+            }
+            canvas#salesChart {
+                width: 100% !important;
+                height: auto !important;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="sidebar">
+        <h4 class="text-center">Dashboard</h4>
+        <a href="{{ url_for('dashboard') }}">Home</a>
+        <a href="{{ url_for('logout') }}">Logout</a>
+    </div>
+
+    <div class="content">
+        <div class="container mt-5">
+            <h2 class="text-center">Product Search & Analysis</h2>
+            {% with messages = get_flashed_messages(with_categories=true) %}
+                {% if messages %}
+                    <div class="alert-container">
+                        {% for category, message in messages %}
+                            <div class="alert alert-{{ category }} alert-dismissible fade show" role="alert">
+                                {{ message }}
+                                <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+                            </div>
+                        {% endfor %}
+                    </div>
+                {% endif %}
+            {% endwith %}
+
+            <form method="POST" action="{{ url_for('dashboard') }}" class="mb-4" id="searchForm">
+                <input type="hidden" name="action" value="search">
+                <div class="mb-3">
+                    <label class="form-label">Age Range</label>
+                    <div class="row">
+                        <div class="col">
+                            <input type="number" class="form-control" id="min_age" name="min_age" placeholder="Min Age" min="0" max="150">
+                        </div>
+                        <div class="col">
+                            <input type="number" class="form-control" id="max_age" name="max_age" placeholder="Max Age" min="0" max="150">
+                        </div>
+                    </div>
+                </div>
+                <div class="mb-3">
+                    <label for="gender" class="form-label">Gender</label>
+                    <select class="form-control" id="gender" name="gender" required>
+                        <option value="" disabled selected>Select Gender</option>
+                        <option value="Male">Male</option>
+                        <option value="Female">Female</option>
+                        <option value="Other">Other</option>
+                    </select>
+                </div>
+                <div class="mb-3">
+                    <label for="query" class="form-label">Product Search (Category or Keyword)</label>
+                    <select class="form-control" id="query" name="query" required>
+                        <option value="" disabled selected>Select a category or type</option>
+                        <option value="Supermarket">Supermarket</option>
+                        <option value="Electronic">Electronic</option>
+                    </select>
+                    <small class="form-text text-muted">Or type a custom query (e.g., best phone under 20000)</small>
+                </div>
+                <div class="mb-3">
+                    <label for="product_name" class="form-label">Specific Product Name</label>
+                    <input type="text" class="form-control" id="product_name" name="product_name" placeholder="e.g., iPhone 14">
+                </div>
+                <div class="mb-3">
+                    <label class="form-label">Price Range (INR)</label>
+                    <div class="row">
+                        <div class="col">
+                            <input type="number" class="form-control" name="min_price" placeholder="Min Price" step="0.01">
+                        </div>
+                        <div class="col">
+                            <input type="number" class="form-control" name="max_price" placeholder="Max Price" step="0.01">
+                        </div>
+                    </div>
+                </div>
+                <button type="submit" class="btn btn-primary" id="searchButton">
+                    <span class="spinner-border spinner-border-sm d-none" role="status" id="loadingSpinner"></span>
+                    Search
+                </button>
+            </form>
+
+            {% if products %}
+            <h3>Top 10 Products for "{{ query }}"</h3>
+            <div class="row">
+                {% for product in products %}
+                <div class="col-md-4 mb-4">
+                    <div class="card h-100">
+                       
+                        <div class="card-body">
+                            <h5 class="card-title">{{ product.category }} - {{ product.brand }}</h5>
+                            <p class="card-text">
+                                <strong>Age:</strong> {{ product.age if product.age else 'Not specified' }}<br>
+                                <strong>Prices:</strong><br>
+                                Amazon: {{ product.prices.amazon }}<br>
+                                Flipkart: {{ product.prices.flipkart }}<br>
+                                Reliance Digital: {{ product.prices.reliance_digital }}<br>
+                                <strong>Lowest Price:</strong> {{ product.lowest_platform }} ({{ product.prices[product.lowest_platform] }})<br>
+                                <strong>Price Difference:</strong> {{ price_analysis[product.customer_id].difference|round(2) }} INR<br>
+                                <strong>Percentage Difference:</strong> {{ price_analysis[product.customer_id].percentage_diff|round(2) }}%<br>
+                                <strong>Stock Sold:</strong> {{ product.stock_sold }}
+                            </p>
+                            <a href="{{ product.links.amazon }}" class="btn btn-success" target="_blank">Buy on Amazon</a>
+                            <a href="{{ product.links.flipkart }}" class="btn btn-success" target="_blank">Buy on Flipkart</a>
+                            {% if product.lowest_platform == 'reliance_digital' %}
+                            <a href="{{ product.links.reliance_digital }}" class="btn btn-success" target="_blank">Buy on Reliance Digital</a>
+                            {% endif %}
+                        </div>
+                    </div>
+                </div>
+                {% endfor %}
+            </div>
+            {% else %}
+            <div class="text-center">
+                <p>No products found. Try a different search query or check database status.</p>
+            </div>
+            {% endif %}
+
+            <h3>Price Analysis Summary</h3>
+            <div class="table-responsive">
+                <table class="table table-dark">
+                    <thead>
+                        <tr>
+                            <th>Customer ID</th>
+                            <th>Min Price (INR)</th>
+                            <th>Max Price (INR)</th>
+                            <th>Price Difference (INR)</th>
+                            <th>Percentage Difference (%)</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for customer_id, analysis in price_analysis.items() %}
+                        <tr>
+                            <td>{{ customer_id }}</td>
+                            <td>{{ analysis.min_price|round(2) }}</td>
+                            <td>{{ analysis.max_price|round(2) }}</td>
+                            <td>{{ analysis.difference|round(2) }}</td>
+                            <td>{{ analysis.percentage_diff|round(2) }}</td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+
+            <h3>Stock Selling Statistics</h3>
+            <canvas id="salesChart"></canvas>
+
+            <div class="mt-5">
+                <h3>Add New Product</h3>
+                <button class="btn btn-primary" id="showAddForm">Add Product</button>
+                <div id="addProductForm" style="display: none;">
+                    <form method="POST" action="{{ url_for('dashboard') }}" class="mt-3">
+                        <input type="hidden" name="action" value="add_product">
+                        <div class="mb-3">
+                            <label for="new_product_name" class="form-label">Product Name</label>
+                            <input type="text" class="form-control" id="new_product_name" name="new_product_name" required>
+                        </div>
+                        <div class="mb-3">
+                            <label for="new_brand" class="form-label">Brand</label>
+                            <input type="text" class="form-control" id="new_brand" name="new_brand" required>
+                        </div>
+                        <div class="mb-3">
+                            <label for="new_category" class="form-label">Category</label>
+                            <select class="form-control" id="new_category" name="new_category" required>
+                                <option value="Supermarket">Supermarket</option>
+                                <option value="Electronic">Electronic</option>
+                            </select>
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label">Prices</label>
+                            <div class="row">
+                                <div class="col">
+                                    <input type="number" class="form-control" name="new_price_amazon" placeholder="Amazon Price" step="0.01" required>
+                                </div>
+                                <div class="col">
+                                    <input type="number" class="form-control" name="new_price_flipkart" placeholder="Flipkart Price" step="0.01" required>
+                                </div>
+                                <div class="col">
+                                    <input type="number" class="form-control" name="new_price_reliance" placeholder="Reliance Digital Price" step="0.01" required>
+                                </div>
+                            </div>
+                        </div>
+                        <button type="submit" class="btn btn-success">Add Product</button>
+                    </form>
+                </div>
+            </div>
+
+            <script>
+                var ctx = document.getElementById('salesChart').getContext('2d');
+                var salesChart = new Chart(ctx, {
+                    type: 'bar',
+                    data: {
+                        labels: {{ sales_labels|tojson|safe }},
+                        datasets: [{
+                            label: 'Total Stock Sold',
+                            data: {{ sales_values|tojson|safe }},
+                            backgroundColor: 'rgba(75, 192, 192, 0.2)',
+                            borderColor: 'rgba(75, 192, 192, 1)',
+                            borderWidth: 1
+                        }]
+                    },
+                    options: {
+                        scales: {
+                            y: {
+                                beginAtZero: true
+                            }
+                        }
+                    }
+                });
+
+                document.getElementById('searchForm').addEventListener('submit', function() {
+                    var button = document.getElementById('searchButton');
+                    var spinner = document.getElementById('loadingSpinner');
+                    button.disabled = true;
+                    spinner.classList.remove('d-none');
+                });
+
+                document.getElementById('showAddForm').addEventListener('click', function() {
+                    var form = document.getElementById('addProductForm');
+                    if (form.style.display === 'none') {
+                        form.style.display = 'block';
+                    } else {
+                        form.style.display = 'none';
+                    }
+                });
+            </script>
+            <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+        </div>
+    </div>
+</body>
+</html>
